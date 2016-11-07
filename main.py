@@ -26,7 +26,7 @@ def main():
     app = mainframe(root)
 
     fileloc = "list.txt"  # Local directory file
-
+    #Format: [short name],[long name],[path to sh file]
     note = Notebook(root)
 
     termID = []  # ID's of the terminals with respect to their number tab
