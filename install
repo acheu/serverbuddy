@@ -3,11 +3,16 @@
 #tkinter
 sudo apt-get install python python-tk idle python-pmw python-imaging
 
+#mono dll error 
+apt-get install mono-complete
+
 #PIL - Python Image Library
-sudo apt-get install libjpeg libjpeg-dev libfreetype6 libfreetype6-dev zlib1g-dev
+#sudo apt-get install libjpeg libjpeg-dev libfreetype6 libfreetype6-dev zlib1g-dev
+sudo apt-get install python-imaging-tk
 
 #Remove all ids from xterm
 #for id in $(ps aux | grep xterm | grep -v 'grep' | awk '{print $2}'); do kill -9 $id; done
 
 #check 
 #ps aux | grep xterm | grep -v 'grep' | awk '{print $2}'
+
