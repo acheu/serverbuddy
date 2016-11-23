@@ -10,10 +10,6 @@ from PIL import ImageTk, Image
 from signal import SIGINT
 
 
-## Feature List to Add:
-# When Refresh Tabs is called, check if there's been any removed lines
-# Remove the ability to kill the terminal without closing the launch script editor 
-
 class frame_make(tk.Frame):
 
     def __init__(self, parent):
@@ -32,7 +28,7 @@ def main():
     root.geometry("620x400+150+150")
     # root.iconbitmap(default='assets/refresh.png')
     app = frame_make(root)
-    #tab_struct = namedtuple('tab_scruct')
+    # tab_struct = namedtuple('tab_scruct')
     global termID, frameID, winID, gameID
     termID = []     # PIDs in Terminals
     frameID = []    # Frame ID
@@ -42,10 +38,8 @@ def main():
     menubar = tk.Menu(root)
     filemenu = tk.Menu(menubar, tearoff=0)
     note = Notebook(root)
-    filemenu.add_command(label='Add New Tab',
-                         command=lambda: write_new_tab_frame(note, fileloc, gameID))
-    filemenu.add_command(label='Remove Tab',
-                         command=lambda: remove_specific_tab_frame(note, fileloc))
+    filemenu.add_command(label='Add New Tab', command=lambda: write_new_tab_frame(note, fileloc, gameID))
+    filemenu.add_command(label='Remove Tab', command=lambda: remove_specific_tab_frame(note, fileloc))
     filemenu.add_separator()
     filemenu.add_command(label='Exit',
                          command=lambda: destroy_all(root))
@@ -71,28 +65,27 @@ def main():
 
 
 def remove_specific_tab_frame(note, fileloc):
-    ### The frame displaying a list of all games with a delete button ###
+    """The frame displaying a list of all games with a delete button"""
     remove_tab_frame = tk.Tk()
     remove_tab_frame.geometry('200x300+200+200')
+    remove_tab_frame.title('Remove Tab Select')
     rm_tb = tk.Listbox(remove_tab_frame)
     rm_tb.pack(expand='yes')
     for item in gameID:
-        rm_tb.insert(tk.END,item)
-    # del_b = tk.Button(remove_tab_frame, text='Delete selected',
-    #                  command=lambda rm_tb=rm_tb: rm_tb.delete(tk.ANCHOR))
+        rm_tb.insert(tk.END, item)
     del_b = tk.Button(remove_tab_frame, text='Delete selected',
                       command=lambda: remove_specific_tab(note, rm_tb, fileloc))
     del_b.pack()
 
 
 def remove_specific_tab(note, rm_tb, fileloc):
-    ### The function called by the remove_specific_tab_frame to delete games ###
+    """The function called by the remove_specific_tab_frame to delete games"""
     game_lists = rm_tb.curselection()
     num = map(int, game_lists)
     for it in num:
         lines = []
         commands = []
-        with open(fileloc,'r') as csvfile:
+        with open(fileloc, 'r') as csvfile:
             read = csv.reader(csvfile, delimiter=',', quotechar='|')
             for i, row in enumerate(read):
                 shortname, longname, commandname = map(str.strip, row)
@@ -100,7 +93,7 @@ def remove_specific_tab(note, rm_tb, fileloc):
                     lines.append(row)
                 else:
                     commands.append(commandname)
-        with open(fileloc,'w') as csvfile:
+        with open(fileloc, 'w') as csvfile:
             for line in lines:
                 towrite = line[0] + ',' + line[1] + ',' + line[2] + '\n'
                 csvfile.write(towrite)
@@ -128,7 +121,7 @@ def write_new_tab_frame(note, fileloc, gameID):
     text_command.pack(fill='both', side='left')
     text_one.pack(fill='both')
     text_two.pack(fill='both')
-    text_three.pack(fill='both')    
+    text_three.pack(fill='both')
     submit_button = tk.Button(new_tab_frame, text='Add Tab',
                               command=lambda: write_new_tab(new_tab_frame,
                                                             note, gameID, fileloc, text_short,
@@ -138,20 +131,20 @@ def write_new_tab_frame(note, fileloc, gameID):
 
 
 def error_prompt(err_text):
-    ### Error prompt message, send any input string and it'll display a prompt ###
+    """Error prompt message, send any input string and it'll display a prompt."""
     widget = tk.Tk()
     widget.title('Error Message')
     text_frame = tk.Frame(widget)
     widget.geometry('300x100+200+200')
-    tk.Label(text_frame, text=err_text).pack(pady=(20,20), padx=(10,10))
+    tk.Label(text_frame, text=err_text).pack(pady=(20, 20), padx=(10, 10))
     text_frame.pack()
-    tk.Button(widget, text='  OK  ',command=lambda:widget.destroy()).pack()
+    tk.Button(widget, text='  OK  ', command=lambda: widget.destroy()).pack()
 
 
-def write_new_tab(new_tab_frame, note, gameID, fileloc, ts,tl,tc):
-    short_name = ts.get('1.0',tk.END).strip()
-    long_name = tl.get('1.0',tk.END).strip()
-    command_text = tc.get('1.0',tk.END).strip()
+def write_new_tab(new_tab_frame, note, gameID, fileloc, ts, tl, tc):
+    short_name = ts.get('1.0', tk.END).strip()
+    long_name = tl.get('1.0', tk.END).strip()
+    command_text = tc.get('1.0', tk.END).strip()
     check_names = True
     if (' ' in short_name):
         error_prompt('Error: Cannot have spaces in Tab Name')
@@ -187,7 +180,7 @@ def refresh_tabs(note, fileloc, gameID):
             shortname = []
             if len(row) > 0:
                 shortname, longname, command = map(str.strip, row)
-                if not any(row[0] in s for s in gameID):                
+                if not any(row[0] in s for s in gameID):
                     frameID.append(tk.Frame(note))
                     termID.append(0)  # lengthen the termIDS
                     note.add(frameID[i], text=shortname)
@@ -236,19 +229,19 @@ def refresh_tabs(note, fileloc, gameID):
 
 
 def send_kill_all():
-    ### Kill all open terminals - called when program quits. ###
-        # command = "kill " + ' '.join(map(str,termID)) + " &> /dev/null"
-        # print command
-        # Kill will apply command to all elements
-        # subprocess.call(command, shell=True)
+    """Kill all open terminals - called when program quits."""
     for i in range(0, len(termID)):
-        if termID[i] > 0: 
+        if termID[i] > 0:
             os.killpg(termID[i].pid, SIGINT)
 
 
 def send_misc_command(command, in_term):
-    ### Duplicate of send_launch_game but does not default look inside its own directory ###
-    ### in_term is the shortname ### 
+    """Duplicate of send_launch_game but does not default look inside its own directory.
+
+    Keyword arguments:
+    command -- String, text of command to be passed to terminal
+    in_term -- String, short tab name of game to be referenced
+    """
     in_term = gameID.index(in_term)
     ref_term = winID[in_term]
     if ref_term > 0:
@@ -259,7 +252,7 @@ def send_misc_command(command, in_term):
 
 
 def send_launch_game(command, sn):
-    ### Launches the game based off the command given and the short name, sn
+    """Launches the game based off the command given and the short name, sn """
     in_term = gameID.index(sn)
     ref_term = winID[in_term]
     if ref_term > 0:
@@ -270,7 +263,7 @@ def send_launch_game(command, sn):
 
 
 def send_kill_game(term):
-    ### term is the short name
+    """term is the short name"""
     term = gameID.index(term)
     if termID[term] > 0:
         os.killpg(termID[term].pid, SIGINT)
