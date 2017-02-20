@@ -8,10 +8,13 @@ from collections import namedtuple
 from ttk import Notebook
 from PIL import ImageTk, Image
 from signal import SIGINT
-
+from cmdlist import cmdlist
+from time import time, sleep
+from json import loads
+from urllib import urlopen
+import socket
 
 class frame_make(tk.Frame):
-
     def __init__(self, parent):
         # Frame.__init__(self, parent, background="white")
         tk.Frame.__init__(self, parent)
@@ -23,23 +26,64 @@ class frame_make(tk.Frame):
         self.pack(fill=tk.BOTH, expand=1)
 
 
+class tab_data():
+    """ Class filled with functions that handle tab information and function"""
+    def __init__(self):
+        self.onlineico_obj = []
+        self.prev_status = False
+
+    def set_onlineico_obj(self, obj):
+        self.onlineico_obj = obj
+
+    def set_online_status(self, val):
+        """ Changes online/offline icon on tab
+
+        Keywords:
+        val: boolean, true if server is read to be online, false else
+        change_bool: output, true if the server is changing status from offline-> online or
+        vice versa, false if there's no change in the previous status
+
+        """
+        online_ico = []
+        if val:
+            loc_on = 'assets/online.png'
+            online_ico = ImageTk.PhotoImage(Image.open(loc_on))
+        else:
+            loc_off = 'assets/offline.png'
+            online_ico = ImageTk.PhotoImage(Image.open(loc_off))
+        self.onlineico_obj.configure(image=online_ico)
+        self.onlineico_obj.image = online_ico  # Keep reference
+
+        change_bool = False
+        if self.prev_status != val:
+            change_bool = True
+            self.prev_status = val
+        return change_bool
+
+
 def main():
     root = tk.Tk()
-    root.geometry("620x400+150+150")
-    # root.iconbitmap(default='assets/refresh.png')
+    root.geometry("620x460+150+150")
+    # root.iconbitmap('/home/chewie/Documents/server_buddy/favicon.ico')
     app = frame_make(root)
     # tab_struct = namedtuple('tab_scruct')
-    global termID, frameID, winID, gameID
+    global termID, frameID, winID, gameID, game_config, fileloc
+    global tabdata_obj  # FIX ME: Need to include other variables
+    # tabdata_obj will be the list that holds all the info like GameID and info on online icons
+    game_config = [] # Universal information with all games
     termID = []     # PIDs in Terminals
     frameID = []    # Frame ID
     winID = []      # Window IDs of the Terminal windows
     gameID = []     # List of short names as we add them
-    fileloc = "launch_commands/list.txt"  # Local directory file
+    srvcmd_loc = "launch_commands/servers_list.json"  # Local directory file
+    fileloc = cmdlist(srvcmd_loc)  # Initializes
+    tabdata_obj = []
     menubar = tk.Menu(root)
     filemenu = tk.Menu(menubar, tearoff=0)
     note = Notebook(root)
-    filemenu.add_command(label='Add New Tab', command=lambda: write_new_tab_frame(note, fileloc, gameID))
-    filemenu.add_command(label='Remove Tab', command=lambda: remove_specific_tab_frame(note, fileloc))
+    filemenu.add_command(label='Add New Tab', command=lambda: write_new_tab_frame(note, gameID))
+    filemenu.add_command(label='Remove Tab', command=lambda: remove_specific_tab_frame(note))
+    filemenu.add_command(label='Email Notification', command=lambda: setup_email_notification())
     filemenu.add_separator()
     filemenu.add_command(label='Exit',
                          command=lambda: destroy_all(root))
@@ -48,23 +92,83 @@ def main():
     # Format: [short name], [long name], [path to sh file]
     root_buttons = tk.Frame(root)
     root_buttons.pack(side='top')
-    bannerLoc = 'assets/banner.png'
+    bannerLoc = 'assets/banner_2.png'
     img = ImageTk.PhotoImage(Image.open(bannerLoc))
     rb_img = tk.Label(root_buttons, image=img)
+    #rb_b1 = tk.Button(root_buttons, text='Refresh List',
+    #                  command=lambda: refresh_tabs(note, fileloc, gameID))
     rb_b1 = tk.Button(root_buttons, text='Refresh List',
-                      command=lambda: refresh_tabs(note, fileloc, gameID))
+                      command=lambda: refresh_tabs(note, game_config))
     rb_b2 = tk.Button(root_buttons, text='Exit', command=lambda: destroy_all(root))
     rb_img.pack(side='left')
     rb_b1.pack(side='left', fill='both', expand='yes')
     rb_b2.pack(side='right', fill='both', expand='yes')
-    refresh_tabs(note, fileloc, gameID)
+    refresh_tabs(note, gameID)
+    root.after(1000, lambda: check_status_tabs(note, game_config))
+    # After 120 seconds, check the status of the tabs (ie are they online?)
     root.mainloop()
     # PAST THIS POINT, THE USER HAS PRESSED THE "X" CLOSE
     # BUTTON ON THE WINDOW, invoking root.destroy
     send_kill_all()
 
 
-def remove_specific_tab_frame(note, fileloc):
+def check_status_tabs(note, game_config):
+    #""" Called periodically to check the running status and set the dict isonline"""
+    # FIX ME: idk why, but uncommenting the above line sends an EOL syntax error
+    entries = cmdlist.return_list(fileloc)
+    __data = loads(urlopen("http://ip.jsontest.com/").read())
+    ip = __data['ip']
+    for itt in range(len(entries)):
+        port = entries[itt]['port']
+        iploc = ip + ':' +  port
+        #response = os.system('ping -c 1 ' + iploc)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        ip = '127.0.0.1'
+        port = '8080'
+        result = sock.connect_ex((ip,int(port)))
+        print result                 
+    refresh_tabs(note, game_config)
+    note.after(1000, lambda: check_status_tabs(note, game_config))
+    # FIX ME: I'm worried after prolong use this recursion will overload memory
+
+def edit_server_tab(itt):
+    """ Tab info for editing the server information"""
+    editsrv_tab = tk.Tk()
+    editsrv_tab.geometry('390x220+200+200')
+    editsrv_tab.title('Edit Server Information')
+    listbound = tk.Frame(editsrv_tab)
+    __data = cmdlist.return_list(fileloc)
+    tabinfo = __data[itt]
+    valuelabels = []
+    
+    for i in range(len(tabinfo)):
+        keys = tabinfo.keys()
+        tk.Label(listbound, text=keys[i]).grid(row=i, sticky='W')
+        valuelabels.append(tk.Entry(listbound))
+        valuelabels[i].grid(row=i, column=1)
+        valuelabels[i].insert(0, tabinfo[keys[i]])
+    submit_b = tk.Button(editsrv_tab, text='Submit Changes',
+                         command=lambda:edit_server_submit_changes(itt, keys, valuelabels))
+    listbound.pack()
+    submit_b.pack()
+
+
+def edit_server_submit_changes(game, keys, values):
+    for itt in range(len(keys)):
+        #print keys[itt]
+        #print values[1].get()
+        cmdlist.edit_field(fileloc, gameID[game], keys[itt], values[itt].get())
+
+
+def setup_email_notification():
+    email_frame = tk.Tk()
+    email_frame.geometry('300x200+200+200')
+    email_frame.title('Email Notification Setup')
+    # FIX ME: finish
+
+
+def remove_specific_tab_frame(note):
     """The frame displaying a list of all games with a delete button"""
     remove_tab_frame = tk.Tk()
     remove_tab_frame.geometry('200x300+200+200')
@@ -74,60 +178,39 @@ def remove_specific_tab_frame(note, fileloc):
     for item in gameID:
         rm_tb.insert(tk.END, item)
     del_b = tk.Button(remove_tab_frame, text='Delete selected',
-                      command=lambda: remove_specific_tab(note, rm_tb, fileloc))
+                      command=lambda: remove_specific_tab(note, rm_tb))
     del_b.pack()
 
 
-def remove_specific_tab(note, rm_tb, fileloc):
+def remove_specific_tab(note, rm_tb):
     """The function called by the remove_specific_tab_frame to delete games"""
     game_lists = rm_tb.curselection()
     num = map(int, game_lists)
     for it in num:
         lines = []
-        commands = []
-        with open(fileloc, 'r') as csvfile:
-            read = csv.reader(csvfile, delimiter=',', quotechar='|')
-            for i, row in enumerate(read):
-                shortname, longname, commandname = map(str.strip, row)
-                if shortname != gameID[it]:
-                    lines.append(row)
-                else:
-                    commands.append(commandname)
-        with open(fileloc, 'w') as csvfile:
-            for line in lines:
-                towrite = line[0] + ',' + line[1] + ',' + line[2] + '\n'
-                csvfile.write(towrite)
-        for com in commands:
+        com = cmdlist.get_field(fileloc, gameID[it], 'command')
+        cmdlist.remove_entry(fileloc, gameID[it])
+        #with open(fileloc, 'r') as csvfile:
+        #   read = csv.reader(csvfile, delimiter=',', quotechar='|')
+        #    for i, row in enumerate(read):
+        #        shortname, longname, commandname = map(str.strip, row)
+        #        if shortname != gameID[it]:
+        #            lines.append(row)
+        #        else:
+        #            commands.append(commandname)
+        #with open(fileloc, 'w') as csvfile:
+        #    for line in lines:
+        #        towrite = line[0] + ',' + line[1] + ',' + line[2] + '\n'
+        #        csvfile.write(towrite)
+        try:
+            # Remove command files associated with removed games
+            #print com
             os.remove(com)
-        refresh_tabs(note, fileloc, gameID)
+        except ValueError, e:
+            error_prompt(e)
+        
+        refresh_tabs(note, gameID)
         rm_tb.delete(tk.ANCHOR)
-
-
-def write_new_tab_frame(note, fileloc, gameID):
-    new_tab_frame = tk.Tk()
-    new_tab_frame.title('Add New Tab Form')
-    text_one = tk.Frame(new_tab_frame)
-    text_two = tk.Frame(new_tab_frame)
-    text_three = tk.Frame(new_tab_frame)
-    new_tab_frame.geometry('640x150+200+200')
-    tk.Label(text_one, text='Tab Name').pack(side='left')
-    text_short = tk.Text(text_one, height=1)
-    tk.Label(text_two, text='Full Name').pack(side='left')
-    text_long = tk.Text(text_two, height=1)
-    tk.Label(text_three, text='Command').pack(side='left')
-    text_command = tk.Text(text_three, height = 5)
-    text_short.pack(fill='both', side='left')
-    text_long.pack(fill='both', side='left')
-    text_command.pack(fill='both', side='left')
-    text_one.pack(fill='both')
-    text_two.pack(fill='both')
-    text_three.pack(fill='both')
-    submit_button = tk.Button(new_tab_frame, text='Add Tab',
-                              command=lambda: write_new_tab(new_tab_frame,
-                                                            note, gameID, fileloc, text_short,
-                                                            text_long, text_command))
-    submit_button.pack()
-    new_tab_frame.mainloop()
 
 
 def error_prompt(err_text):
@@ -141,10 +224,59 @@ def error_prompt(err_text):
     tk.Button(widget, text='  OK  ', command=lambda: widget.destroy()).pack()
 
 
-def write_new_tab(new_tab_frame, note, gameID, fileloc, ts, tl, tc):
+def write_new_tab_frame(note, gameID):
+    new_tab_frame = tk.Tk()
+    new_tab_frame.title('Add New Tab Form')
+    text_one = tk.Frame(new_tab_frame)
+    text_two = tk.Frame(new_tab_frame)
+    text_three = tk.Frame(new_tab_frame)
+    text_four = tk.Frame(new_tab_frame)
+    text_five = tk.Frame(new_tab_frame)
+    new_tab_frame.geometry('670x190+200+200')
+    tk.Label(text_one, text='Tab Name').pack(side='left')
+    text_short = tk.Text(text_one, height=1)
+    tk.Label(text_two, text='Full Name').pack(side='left')
+    text_long = tk.Text(text_two, height=1)
+    tk.Label(text_three, text='Command').pack(side='left')
+    text_command = tk.Text(text_three, height = 5)
+    tk.Label(text_four, text='Port').pack(side='left')
+    text_port = tk.Text(text_four, height = 1)
+    tk.Label(text_five, text='Is Public? [T/F]').pack(side='left')
+    #text_ispublic = tk.Text(text_five, height = 1)
+    __var = tk.StringVar(text_five)
+    __var.set('True')
+    option_var = tk.OptionMenu(text_five, __var, 'True', 'False')
+    text_short.pack(fill='both', side='right')
+    text_long.pack(fill='both', side='right')
+    text_command.pack(fill='both', side='right')
+    text_port.pack(fill='both', side='right')
+    option_var.pack(fill='both', side='left')
+    text_one.pack(fill='both')
+    text_two.pack(fill='both')
+    text_three.pack(fill='both')
+    text_four.pack(fill='both')
+    text_five.pack(fill='both')
+    submit_button = tk.Button(new_tab_frame, text='Add Tab',
+                              command=lambda: write_new_tab(new_tab_frame,
+                                                            note, gameID, text_short,
+                                                            text_long, text_command, text_port,
+                                                            __var))
+    submit_button.pack()
+    new_tab_frame.mainloop()
+
+
+def write_new_tab(new_tab_frame, note, gameID, ts, tl, tc, tp, ti):
     short_name = ts.get('1.0', tk.END).strip()
     long_name = tl.get('1.0', tk.END).strip()
     command_text = tc.get('1.0', tk.END).strip()
+    port = tp.get('1.0', tk.END).strip()
+    __data = loads(urlopen("http://ip.jsontest.com/").read())
+    __ip = __data['ip']
+    ti = ti.get()
+    if ti == 'True':
+        ispublic = True
+    else:
+        ispublic = False
     check_names = True
     if (' ' in short_name):
         error_prompt('Error: Cannot have spaces in Tab Name')
@@ -157,13 +289,25 @@ def write_new_tab(new_tab_frame, note, gameID, fileloc, ts, tl, tc):
         check_names = False
     if check_names:
         file_command_name = 'launch_commands/' + short_name + '_launch.sh'
-        write_line = short_name + ',' + long_name + ',' + file_command_name + '\n'
-        with open(fileloc, 'a') as lists:
-            lists.write(write_line)
         with open(file_command_name, 'a') as t:
+            # Write the command file
             command_text = '#!/bin/bash\n' + command_text
             t.write(command_text)
-        refresh_tabs(note, fileloc, gameID)
+        tab_entry = {
+            'shortname': short_name,
+            'longname': long_name,
+            'command': file_command_name,
+            'isonline': False,  # Default added field
+            'ispublic': ispublic, # Default added field
+            'port': port,
+            'date_created': time(),  # In floating sec from unix epoch
+            'date_prevlaunch': 0,
+            'date_offlinesince': time()
+        }
+        # Commented out old r/w process ad replaced with cmdlist.addentry below
+        cmdlist.add_entry(fileloc, tab_entry)
+        #cmdlist.addentry expects object as second entry with longname, shortname, and command
+        refresh_tabs(note, gameID)
         new_tab_frame.destroy()
 
 
@@ -172,59 +316,96 @@ def destroy_all(root):  # destroys all terminals and root
     root.destroy()
 
 
-def refresh_tabs(note, fileloc, gameID):
-    with open(fileloc, 'rb') as csvfile:
-        read = csv.reader(csvfile, delimiter=',', quotechar='|')
-        cnt = 0
-        for i, row in enumerate(read):
-            shortname = []
-            if len(row) > 0:
-                shortname, longname, command = map(str.strip, row)
-                if not any(row[0] in s for s in gameID):
-                    frameID.append(tk.Frame(note))
-                    termID.append(0)  # lengthen the termIDS
-                    note.add(frameID[i], text=shortname)
-                    note_button = tk.Frame(frameID[i])
-                    note_button.pack()
-                    lbutton = 'Launch: ' + longname
-                    launch_command = lambda com, j: lambda: send_launch_game(com, j)
-                    edit_command = lambda eg, k: lambda: send_misc_command(eg, k)
-                    kill_command = lambda kcom: lambda: send_kill_game(kcom)
-                    lg = tk.Button(note_button,
-                                   text=lbutton,
-                                   command=launch_command(command, shortname))
-                    kg = tk.Button(note_button,
-                                   text="Kill Terminal",
-                                   command=kill_command(shortname))
-                    eg = tk.Button(note_button,
-                                   text='Edit Script',
-                                   command=edit_command('/bin/nano ' + command, shortname))
-                    gameID.append(shortname)
-                    lg.pack(side="left")
-                    eg.pack(side='left')
-                    kg.pack(side="right")
-                    panel = tk.Frame(frameID[i], height=300, width=500)
-                    panel.pack(fill=tk.BOTH, side='bottom', expand=tk.YES)
-                    wip = panel.winfo_id()
-                    winID.append(wip)
-                elif shortname != gameID[i]:
-                    send_kill_game(shortname)
-                    termID.remove(termID[i])
-                    frameID[i].destroy()
-                    frameID.remove(frameID[i])
-                    winID.remove(winID[i])
-                    gameID.remove(gameID[i])
-            cnt += 1
-        if cnt < len(gameID):
-            # Remove the last entry
-            shortname = gameID[-1]
-            send_kill_game(shortname)
-            termID.remove(termID[-1])
-            frameID[-1].destroy()
-            frameID.remove(frameID[-1])
-            winID.remove(winID[-1])
-            gameID.remove(gameID[-1])
-        
+def refresh_tabs(note, game_config):
+    entries = cmdlist.return_list(fileloc)
+    for itt in range(len(entries)):
+        shortname = entries[itt]['shortname']
+        longname = entries[itt]['longname']
+        command = entries[itt]['command']
+        online_pic = []
+        if not any(shortname in s for s in gameID):
+            # If JSON file has a new game listed not in gameID, add it
+            frameID.append(tk.Frame(note))
+            termID.append(0)  # lengthen the termIDS
+            note.add(frameID[itt], text=shortname)
+            note_button = tk.Frame(frameID[itt])
+            note_button.pack()
+            lbutton = 'Launch: ' + longname
+            __data = loads(urlopen("http://ip.jsontest.com/").read())
+            __ip = __data['ip']
+            # Reference http://stackoverflow.com/questions/24508730/finding-network-external-ip-addresses-using-python
+            launch_command = lambda com, j: lambda: send_launch_game(com, j)
+            edit_command = lambda eg, k: lambda: send_misc_command(eg, k)
+            kill_command = lambda kcom: lambda: send_kill_game(kcom)
+            edit_tab = lambda l: lambda: edit_server_tab(l)
+            lg = tk.Button(note_button,
+                           text=lbutton,
+                           command=launch_command(command, shortname))
+            kg = tk.Button(note_button,
+                           text="Kill Terminal",
+                           command=kill_command(shortname))
+            eg = tk.Button(note_button,
+                           text='Edit Script',
+                           command=edit_command('/bin/nano ' + command, shortname))
+            i = tk.Button(note_button,
+                          text= 'i', command=edit_tab(itt))
+            pi = tk.Label(note_button, text=('IP/Port: ' + __ip + ':' + entries[itt]['port']))
+            
+
+            photo = ImageTk.PhotoImage(Image.open('assets/online.png'))
+            online_pic = tk.Label(note_button, image=photo)
+            online_pic.image = photo  # Keep reference
+
+            __newtab = tab_data()  # Initialize new tab_data
+            tabdata_obj.append(__newtab)  # Then store it in the list of all tab objects
+            tab_data.set_onlineico_obj(__newtab, online_pic)
+            
+            
+            gameID.append(shortname)
+            lg.pack(side="left")
+            eg.pack(side='left')
+            kg.pack(side="left")
+            i.pack(side='left')
+            pi.pack(side='right')
+            online_pic.pack(side='right')
+            panel = tk.Frame(frameID[itt], height=300, width=500)
+            panel.pack(fill=tk.BOTH, side='bottom', expand=tk.YES)
+            wip = panel.winfo_id()
+            winID.append(wip)
+
+        __onl = cmdlist.is_online(fileloc, shortname)
+        prevchange = tab_data.set_online_status(tabdata_obj[itt], __onl)
+        if prevchange:
+            if __onl:
+                cmdlist.edit_field(fileloc, shortname, 'date_prevlaunch', time())
+            else:
+                cmdlist.edit_field(fileloc, shortname, 'date_offlinesince', time())
+        #online_ico = []
+        #__onl = cmdlist.is_online(fileloc, shortname)
+        #if __onl:
+        #    loc_on = 'assets/online.png'
+        #    online_ico = ImageTk.PhotoImage(Image.open(loc_on))
+        #else:
+        #    loc_off = 'assets/offline.png'
+        #    online_ico = ImageTk.PhotoImage(Image.open(loc_off))
+        #online_pic.configure(image=online_ico)
+        #online_pic.image = online_ico  # Keep reference
+        # FIX ME:  Cannot refresh tabs right now - I need to rework how main organizes
+            # references to the tab objects and stores them - so that I can update the image
+            # object at any time without losing its reference
+            
+    for itt2 in range(len(gameID)):  # FIX ME: switch to enumerate
+        __jsonshorts = cmdlist.get_all_shortname(fileloc)
+        if not any(gameID[itt2] in s for s in __jsonshorts):
+            # IF gameID has a game no longer in the JSON, delete that game
+            # Game was removed from JSON list, so kill game on that tab and destroy tab
+            send_kill_game(gameID[itt2])
+            termID.remove(termID[itt2])
+            frameID[itt2].destroy()
+            frameID.remove(frameID[itt2])
+            winID.remove(winID[itt2])
+            gameID.remove(gameID[itt2])
+            break  # FIX ME: Based off the assumption that you can only delete one at a time
     note.pack(fill='both', expand=True)
 
 
@@ -260,6 +441,7 @@ def send_launch_game(command, sn):
     command = "/usr/bin/xterm -into " + str(ref_term) + " -geometry 100x21 -sb -hold -e " + 'sudo sh ' + os.getcwd() + "/" + command.strip()
     process = subprocess.Popen(command, preexec_fn=os.setpgrp,  shell=True)
     termID[in_term] = process
+    cmdlist.edit_field(fileloc, sn, 'date_prevlaunch', time())
 
 
 def send_kill_game(term):
