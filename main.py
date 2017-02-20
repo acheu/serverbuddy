@@ -94,9 +94,8 @@ def main():
     root_buttons.pack(side='top')
     bannerLoc = 'assets/banner_2.png'
     img = ImageTk.PhotoImage(Image.open(bannerLoc))
+    root.iconbitmap('@candy.xbm')
     rb_img = tk.Label(root_buttons, image=img)
-    #rb_b1 = tk.Button(root_buttons, text='Refresh List',
-    #                  command=lambda: refresh_tabs(note, fileloc, gameID))
     rb_b1 = tk.Button(root_buttons, text='Refresh List',
                       command=lambda: refresh_tabs(note, game_config))
     rb_b2 = tk.Button(root_buttons, text='Exit', command=lambda: destroy_all(root))
@@ -122,12 +121,12 @@ def check_status_tabs(note, game_config):
         port = entries[itt]['port']
         iploc = ip + ':' +  port
         #response = os.system('ping -c 1 ' + iploc)
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         ip = '127.0.0.1'
         port = '8080'
-        result = sock.connect_ex((ip,int(port)))
-        print result                 
+        #result = sock.connect_ex((ip,int(port)))
+        #print result                 
     refresh_tabs(note, game_config)
     note.after(1000, lambda: check_status_tabs(note, game_config))
     # FIX ME: I'm worried after prolong use this recursion will overload memory
