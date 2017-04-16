@@ -31,9 +31,14 @@ class tab_data():
     def __init__(self):
         self.onlineico_obj = []
         self.prev_status = False
+        self.ip = '127.0.0.1:00'
 
     def set_onlineico_obj(self, obj):
         self.onlineico_obj = obj
+
+    def set_ip(self, obj):
+        self.ip = obj
+
 
     def set_online_status(self, val):
         """ Changes online/offline icon on tab
@@ -63,7 +68,7 @@ class tab_data():
 
 def main():
     root = tk.Tk()
-    root.geometry("620x460+150+150")
+    root.geometry("620x420+150+150")
     # root.iconbitmap('/home/chewie/Documents/server_buddy/favicon.ico')
     app = frame_make(root)
     # tab_struct = namedtuple('tab_scruct')
@@ -115,20 +120,56 @@ def check_status_tabs(note, game_config):
     #""" Called periodically to check the running status and set the dict isonline"""
     # FIX ME: idk why, but uncommenting the above line sends an EOL syntax error
     entries = cmdlist.return_list(fileloc)
-    __data = loads(urlopen("http://ip.jsontest.com/").read())
-    ip = __data['ip']
+    
+    ip = []
+    try:
+        __data = loads(urlopen("http://ip.jsontest.com/").read())
+        ip = __data['ip']
+    except:
+        print 'Unable to resolve host IP'
+        ip = 'UNKOWN'
+    
+   
     for itt in range(len(entries)):
         port = entries[itt]['port']
-        iploc = ip + ':' +  port
-        #response = os.system('ping -c 1 ' + iploc)
-        #sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        result = []
+        addr = ip + ':' + port
+        sn = entries[itt]['shortname']
+        last_line = ''
+        try:
+            logfile = 'logs/' + sn + '.log'
+            fileHandle = open ( logfile ,"r" )
+            log_lines = fileHandle.readlines()
+            fileHandle.close()
+            last_line = log_lines[-1]
+        except:
+            last_line = ''
+        __write = False
+        print last_line
+        if last_line == 'EOS' or last_line == 'EOS\n':
+            __write = False
+        else:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                result = sock.connect_ex((ip,int(port)))
+                #if result:
+                #    result = subprocess.Popen(['/bin/ping', '-c1', '-w100', addr], stdout=subprocess.PIPE).stdout.read()
+                #    print result
+            except:
+                print 'Unable to reach internet'
+                result = 0
 
-        ip = '127.0.0.1'
-        port = '8080'
-        #result = sock.connect_ex((ip,int(port)))
-        #print result                 
+            tabdata_obj[itt].ip.set(addr)
+            
+            if result is not 0:
+                __write = True    
+        cmdlist.edit_field(fileloc, sn, 'isonline', __write)
+
+    # for itt2 in termID:
+    #    if itt2 is not 0:
+    #        print itt2.stdout
     refresh_tabs(note, game_config)
-    note.after(1000, lambda: check_status_tabs(note, game_config))
+    note.after(10000, lambda: check_status_tabs(note, game_config))
     # FIX ME: I'm worried after prolong use this recursion will overload memory
 
 def edit_server_tab(itt):
@@ -148,17 +189,17 @@ def edit_server_tab(itt):
         valuelabels[i].grid(row=i, column=1)
         valuelabels[i].insert(0, tabinfo[keys[i]])
     submit_b = tk.Button(editsrv_tab, text='Submit Changes',
-                         command=lambda:edit_server_submit_changes(itt, keys, valuelabels))
+                         command=lambda:edit_server_submit_changes(editsrv_tab, itt, keys, valuelabels))
     listbound.pack()
     submit_b.pack()
 
 
-def edit_server_submit_changes(game, keys, values):
+def edit_server_submit_changes(submit_frame, game, keys, values):
     for itt in range(len(keys)):
         #print keys[itt]
         #print values[1].get()
         cmdlist.edit_field(fileloc, gameID[game], keys[itt], values[itt].get())
-
+    submit_frame.destroy()
 
 def setup_email_notification():
     email_frame = tk.Tk()
@@ -290,8 +331,16 @@ def write_new_tab(new_tab_frame, note, gameID, ts, tl, tc, tp, ti):
         file_command_name = 'launch_commands/' + short_name + '_launch.sh'
         with open(file_command_name, 'a') as t:
             # Write the command file
-            command_text = '#!/bin/bash\n' + command_text
+            logname = 'logs/' + short_name + '.log'
+            __bashline = '#!/bin/bash\n'
+            __logstart = "echo 'START' > " +logname + '\n'
+            __logend = "echo 'EOS' >> " + logname
+            command_text = __bashline + __logstart + command_text + '\n' + __logend
             t.write(command_text)
+            with open(logname, 'w+') as l:
+                # Initialize server log with the End of Service delimeter
+                l.write('EOS')
+            
         tab_entry = {
             'shortname': short_name,
             'longname': long_name,
@@ -330,8 +379,8 @@ def refresh_tabs(note, game_config):
             note_button = tk.Frame(frameID[itt])
             note_button.pack()
             lbutton = 'Launch: ' + longname
-            __data = loads(urlopen("http://ip.jsontest.com/").read())
-            __ip = __data['ip']
+            #__data = loads(urlopen("http://ip.jsontest.com/").read())
+            #__ip = __data['ip']
             # Reference http://stackoverflow.com/questions/24508730/finding-network-external-ip-addresses-using-python
             launch_command = lambda com, j: lambda: send_launch_game(com, j)
             edit_command = lambda eg, k: lambda: send_misc_command(eg, k)
@@ -348,17 +397,18 @@ def refresh_tabs(note, game_config):
                            command=edit_command('/bin/nano ' + command, shortname))
             i = tk.Button(note_button,
                           text= 'i', command=edit_tab(itt))
-            pi = tk.Label(note_button, text=('IP/Port: ' + __ip + ':' + entries[itt]['port']))
-            
-
+            #__loc = tk.StringVar()
+            #__loc.set('')
+            address = '127.0.0.1' + ':' + entries[itt]['port']
+            __newtab = tab_data()  # Initialize new tab_data
+            __newtab.ip = tk.StringVar()
+            __newtab.ip.set(address)
+            pi = tk.Label(note_button, textvariable = __newtab.ip)
             photo = ImageTk.PhotoImage(Image.open('assets/online.png'))
             online_pic = tk.Label(note_button, image=photo)
             online_pic.image = photo  # Keep reference
-
-            __newtab = tab_data()  # Initialize new tab_data
             tabdata_obj.append(__newtab)  # Then store it in the list of all tab objects
             tab_data.set_onlineico_obj(__newtab, online_pic)
-            
             
             gameID.append(shortname)
             lg.pack(side="left")
@@ -371,7 +421,7 @@ def refresh_tabs(note, game_config):
             panel.pack(fill=tk.BOTH, side='bottom', expand=tk.YES)
             wip = panel.winfo_id()
             winID.append(wip)
-
+        
         __onl = cmdlist.is_online(fileloc, shortname)
         prevchange = tab_data.set_online_status(tabdata_obj[itt], __onl)
         if prevchange:
@@ -379,19 +429,6 @@ def refresh_tabs(note, game_config):
                 cmdlist.edit_field(fileloc, shortname, 'date_prevlaunch', time())
             else:
                 cmdlist.edit_field(fileloc, shortname, 'date_offlinesince', time())
-        #online_ico = []
-        #__onl = cmdlist.is_online(fileloc, shortname)
-        #if __onl:
-        #    loc_on = 'assets/online.png'
-        #    online_ico = ImageTk.PhotoImage(Image.open(loc_on))
-        #else:
-        #    loc_off = 'assets/offline.png'
-        #    online_ico = ImageTk.PhotoImage(Image.open(loc_off))
-        #online_pic.configure(image=online_ico)
-        #online_pic.image = online_ico  # Keep reference
-        # FIX ME:  Cannot refresh tabs right now - I need to rework how main organizes
-            # references to the tab objects and stores them - so that I can update the image
-            # object at any time without losing its reference
             
     for itt2 in range(len(gameID)):  # FIX ME: switch to enumerate
         __jsonshorts = cmdlist.get_all_shortname(fileloc)
@@ -404,6 +441,12 @@ def refresh_tabs(note, game_config):
             frameID.remove(frameID[itt2])
             winID.remove(winID[itt2])
             gameID.remove(gameID[itt2])
+
+            # Remove tabdata_obj
+            # Remove game_config
+            tabdata_obj.remove(tabdata_obj[itt2])
+            #game_config.remove(game_config[itt2])
+            
             break  # FIX ME: Based off the assumption that you can only delete one at a time
     note.pack(fill='both', expand=True)
 
@@ -441,7 +484,7 @@ def send_launch_game(command, sn):
     process = subprocess.Popen(command, preexec_fn=os.setpgrp,  shell=True)
     termID[in_term] = process
     cmdlist.edit_field(fileloc, sn, 'date_prevlaunch', time())
-
+    
 
 def send_kill_game(term):
     """term is the short name"""
