@@ -9,6 +9,7 @@ from ttk import Notebook
 from PIL import ImageTk, Image
 from signal import SIGINT
 from cmdlist import cmdlist
+from notificationbuddy import notificationbuddy
 from time import time, sleep
 from json import loads
 from urllib import urlopen
@@ -72,7 +73,7 @@ def main():
     # root.iconbitmap('/home/chewie/Documents/server_buddy/favicon.ico')
     app = frame_make(root)
     # tab_struct = namedtuple('tab_scruct')
-    global termID, frameID, winID, gameID, game_config, fileloc
+    global termID, frameID, winID, gameID, game_config, fileloc, ntfc
     global tabdata_obj  # FIX ME: Need to include other variables
     # tabdata_obj will be the list that holds all the info like GameID and info on online icons
     game_config = [] # Universal information with all games
@@ -82,6 +83,7 @@ def main():
     gameID = []     # List of short names as we add them
     srvcmd_loc = "launch_commands/servers_list.json"  # Local directory file
     fileloc = cmdlist(srvcmd_loc)  # Initializes
+    ntfc = notificationbuddy()  # Initializes email server
     tabdata_obj = []
     menubar = tk.Menu(root)
     filemenu = tk.Menu(menubar, tearoff=0)
@@ -145,7 +147,6 @@ def check_status_tabs(note, game_config):
         except:
             last_line = ''
         __write = False
-        print last_line
         if last_line == 'EOS' or last_line == 'EOS\n':
             __write = False
         else:
@@ -423,11 +424,16 @@ def refresh_tabs(note, game_config):
             winID.append(wip)
         
         __onl = cmdlist.is_online(fileloc, shortname)
+        # __onl is True if the tab is online, False else
         prevchange = tab_data.set_online_status(tabdata_obj[itt], __onl)
         if prevchange:
             if __onl:
+                msg = shortname + ' is now online'
+                ntfc.send_email(msg)
                 cmdlist.edit_field(fileloc, shortname, 'date_prevlaunch', time())
             else:
+                msg = shortname + ' has gone offline'
+                ntfc.send_email(msg)
                 cmdlist.edit_field(fileloc, shortname, 'date_offlinesince', time())
             
     for itt2 in range(len(gameID)):  # FIX ME: switch to enumerate
