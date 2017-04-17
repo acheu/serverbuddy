@@ -410,7 +410,10 @@ def refresh_tabs(note, game_config):
             online_pic.image = photo  # Keep reference
             tabdata_obj.append(__newtab)  # Then store it in the list of all tab objects
             tab_data.set_onlineico_obj(__newtab, online_pic)
-            
+            # Initialize all log files of servers to EOS
+            logfile = 'logs/' + shortname + '.log'
+            with open(logfile, 'w+') as f:
+                f.write('EOS')
             gameID.append(shortname)
             lg.pack(side="left")
             eg.pack(side='left')
@@ -459,6 +462,7 @@ def refresh_tabs(note, game_config):
 
 def send_kill_all():
     """Kill all open terminals - called when program quits."""
+    ntfc.quit_server()  # Quits SMTP server
     for i in range(0, len(termID)):
         if termID[i] > 0:
             os.killpg(termID[i].pid, SIGINT)
