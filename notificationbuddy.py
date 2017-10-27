@@ -8,17 +8,19 @@ class notificationbuddy(object):
         if check.upper() == 'Y':
             self.server = smtplib.SMTP('smtp.gmail.com', 587)
             self.server.starttls()
-            usr = prompt('Username: ')
+            self.usr = prompt('Username: ')
             pss = getpass('Password: ')
-            self.server.login(usr,pss)
+            try:
+                self.server.login(self.usr,pss)
+            except:
+                print 'Username and Password Not Accepted'
         else:
             self.server = 0
 
     def send_email(self, msg):
-        if self.server > 0:
-            to_email = "cheualexander@gmail.com"
-            from_email = "serverbudy@wiz.web"
-            # msg = "A server went offline"
+        if self.server != 0:
+            to_email = self.usr + '@gmail.com'
+            from_email = "mona@wiz.web"
             self.server.sendmail(from_email, to_email, msg)
 
     def quit_server(self):
