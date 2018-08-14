@@ -110,9 +110,15 @@ def main():
     rb_b1.pack(side='left', fill='both', expand='yes')
     rb_b2.pack(side='right', fill='both', expand='yes')
     refresh_tabs(note, gameID)
-    root.after(1000, lambda: check_status_tabs(note, game_config))
-    # After 120 seconds, check the status of the tabs (ie are they online?)
-    root.mainloop()
+    while True:
+        try:
+            check_status_tabs(note, game_config)
+            root.update_idletasks()
+            root.update()
+            
+        except:
+            break
+        #root.after(1000, lambda: check_status_tabs(note, game_config))
     # PAST THIS POINT, THE USER HAS PRESSED THE "X" CLOSE
     # BUTTON ON THE WINDOW, invoking root.destroy
     send_kill_all()
@@ -128,8 +134,9 @@ def check_status_tabs(note, game_config):
         __data = loads(urlopen("http://ip.jsontest.com/").read())
         ip = __data['ip']
     except:
-        print 'Unable to resolve host IP'
-        ip = 'UNKOWN'
+        a = 1
+        #print 'Unable to resolve host IP'
+        #ip = 'UNKOWN'
     
    
     for itt in range(len(entries)):
@@ -159,9 +166,7 @@ def check_status_tabs(note, game_config):
             except:
                 print 'Unable to reach internet'
                 result = 0
-
             tabdata_obj[itt].ip.set(addr)
-            
             if result is not 0:
                 __write = True    
         cmdlist.edit_field(fileloc, sn, 'isonline', __write)
@@ -170,7 +175,7 @@ def check_status_tabs(note, game_config):
     #    if itt2 is not 0:
     #        print itt2.stdout
     refresh_tabs(note, game_config)
-    note.after(10000, lambda: check_status_tabs(note, game_config))
+    #note.after(10000, lambda: check_status_tabs(note, game_config))
     # FIX ME: I'm worried after prolong use this recursion will overload memory
 
 def edit_server_tab(itt):
