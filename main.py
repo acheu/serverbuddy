@@ -110,9 +110,10 @@ def main():
     rb_b1.pack(side='left', fill='both', expand='yes')
     rb_b2.pack(side='right', fill='both', expand='yes')
     refresh_tabs(note, gameID)
+    ip = query_ip()
     while True:
         try:
-            check_status_tabs(note, game_config)
+            check_status_tabs(note, game_config,ip)
             root.update_idletasks()
             root.update()
             
@@ -124,21 +125,11 @@ def main():
     send_kill_all()
 
 
-def check_status_tabs(note, game_config):
+
+def check_status_tabs(note, game_config,ip):
     #""" Called periodically to check the running status and set the dict isonline"""
     # FIX ME: idk why, but uncommenting the above line sends an EOL syntax error
     entries = cmdlist.return_list(fileloc)
-    
-    ip = []
-    try:
-        __data = loads(urlopen("http://ip.jsontest.com/").read())
-        ip = __data['ip']
-    except:
-        a = 1
-        #print 'Unable to resolve host IP'
-        #ip = 'UNKOWN'
-    
-   
     for itt in range(len(entries)):
         port = entries[itt]['port']
         result = []
@@ -153,8 +144,11 @@ def check_status_tabs(note, game_config):
             last_line = log_lines[-1]
         except:
             last_line = ''
+
         __write = False
         if last_line == 'EOS' or last_line == 'EOS\n':
+            __write = False
+        elif termID[itt] == 0:
             __write = False
         else:
             try:
@@ -463,6 +457,18 @@ def refresh_tabs(note, game_config):
             
             break  # FIX ME: Based off the assumption that you can only delete one at a time
     note.pack(fill='both', expand=True)
+
+def query_ip():
+    """Queries website to determine what the broadcast ip is, returns a string with ip"""
+    ip = []
+    try:
+        __data = loads(urlopen("http://ip.jsontest.com/").read())
+        ip = __data['ip']
+    except:
+        a = 1
+        print 'Unable to resolve host IP'
+        ip = 'UNKOWN'
+    return ip
 
 
 def send_kill_all():
