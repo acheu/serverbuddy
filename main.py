@@ -68,13 +68,14 @@ class tab_data():
 
 
 def main():
+    global termID, frameID, winID, gameID, game_config, fileloc, ntfc
+    global tabdata_obj  # FIX ME: Need to include other variables
+    ntfc = notificationbuddy()  # Initializes email server
     root = tk.Tk()
     root.geometry("620x420+150+150")
     # root.iconbitmap('/home/chewie/Documents/server_buddy/favicon.ico')
     app = frame_make(root)
     # tab_struct = namedtuple('tab_scruct')
-    global termID, frameID, winID, gameID, game_config, fileloc, ntfc
-    global tabdata_obj  # FIX ME: Need to include other variables
     # tabdata_obj will be the list that holds all the info like GameID and info on online icons
     game_config = [] # Universal information with all games
     termID = []     # PIDs in Terminals
@@ -83,7 +84,6 @@ def main():
     gameID = []     # List of short names as we add them
     srvcmd_loc = "launch_commands/servers_list.json"  # Local directory file
     fileloc = cmdlist(srvcmd_loc)  # Initializes
-    ntfc = notificationbuddy()  # Initializes email server
     tabdata_obj = []
     menubar = tk.Menu(root)
     filemenu = tk.Menu(menubar, tearoff=0)
@@ -111,12 +111,16 @@ def main():
     rb_b2.pack(side='right', fill='both', expand='yes')
     refresh_tabs(note, gameID)
     ip = query_ip()
+    pace_time = int(time())
     while True:
-        try:
+        new_time = int(time())
+        if new_time > pace_time + 2:  # Check Tab Status once every two seconds
             check_status_tabs(note, game_config,ip)
-            root.update_idletasks()
-            root.update()
+            pace_time= new_time
+        try:
             
+            root.update_idletasks()
+            root.update()            
         except:
             break
         #root.after(1000, lambda: check_status_tabs(note, game_config))
@@ -151,26 +155,19 @@ def check_status_tabs(note, game_config,ip):
         elif termID[itt] == 0:
             __write = False
         else:
-            try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                result = sock.connect_ex((ip,int(port)))
-                #if result:
-                #    result = subprocess.Popen(['/bin/ping', '-c1', '-w100', addr], stdout=subprocess.PIPE).stdout.read()
-                #    print result
-            except:
-                print 'Unable to reach internet'
-                result = 0
+        #    try:
+        #        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #        result = sock.connect_ex((ip,int(port)))
+        #        #if result:
+        #        #    result = subprocess.Popen(['/bin/ping', '-c1', '-w100', addr], stdout=subprocess.PIPE).stdout.read()
+        #        #    print result
+        #    except:
+        #        print 'Unable to reach internet'
+        #        result = 0
             tabdata_obj[itt].ip.set(addr)
-            if result is not 0:
-                __write = True    
+            __write = True    
         cmdlist.edit_field(fileloc, sn, 'isonline', __write)
-
-    # for itt2 in termID:
-    #    if itt2 is not 0:
-    #        print itt2.stdout
     refresh_tabs(note, game_config)
-    #note.after(10000, lambda: check_status_tabs(note, game_config))
-    # FIX ME: I'm worried after prolong use this recursion will overload memory
 
 def edit_server_tab(itt):
     """ Tab info for editing the server information"""
@@ -462,10 +459,10 @@ def query_ip():
     """Queries website to determine what the broadcast ip is, returns a string with ip"""
     ip = []
     try:
-        __data = loads(urlopen("http://ip.jsontest.com/").read())
-        ip = __data['ip']
+        #__data = loads(urlopen("http://ip.jsontest.com/").read())
+        #ip = __data['ip']
+        ip = urlopen('http://ip.42.pl/raw').read()
     except:
-        a = 1
         print 'Unable to resolve host IP'
         ip = 'UNKOWN'
     return ip
